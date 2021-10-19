@@ -75,8 +75,6 @@ class Agent():
             return torch.load(self.save_path + "_" + self.model_name + "_" + self.classe, map_location=torch.device('cpu'))
         return torch.load(self.save_path + "_" + self.model_name + "_" + self.classe)
 
-
-
     def intersection_over_union(self, box1, box2):
         x11, x21, y11, y21 = box1
         x12, x22, y12, y22 = box2
@@ -205,13 +203,6 @@ class Agent():
         
     
     def compose_state(self, image, dtype=FloatTensor):
-        """
-            Composition d'un état : Feature Vector + Historique des actions
-            Entrée :
-                - Image ( feature vector ). 
-            Sortie :
-                - Représentation d'état.
-        """
         image_feature = self.get_features(image, dtype)
         image_feature = image_feature.view(1,-1)
         #print("image feature : "+str(image_feature.shape))
@@ -430,86 +421,8 @@ class Agent():
             
             if i_episode % self.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
-            
-            if i_episode<5:
-                self.EPS -= 0.18
+
+            self.EPS -= 0.225
             self.save_network()
 
-            print('Complete')
-
-    def train_validate(self, train_loader, valid_loader):
-        op = open("logs_over_epochs", "w")
-        op.write("NU = "+str(self.nu))
-        op.write("ALPHA = "+str(self.alpha))
-        op.write("THRESHOLD = "+str(self.threshold))
-        xmin = 0.0
-        xmax = 224.0
-        ymin = 0.0
-        ymax = 224.0
-        for i_episode in range(self.num_episodes):  
-            print("Episode "+str(i_episode))
-            for key, value in  train_loader.items():
-                image, ground_truth_boxes = extract(key, train_loader)
-                original_image = image.clone()
-                ground_truth = ground_truth_boxes[0]
-                all_actions = []
-        
-                # Initialize the environment and state
-                self.actions_history = torch.ones((9,9))
-                state = self.compose_state(image)
-                original_coordinates = [xmin, xmax, ymin, ymax]
-                new_image = image
-                done = False
-                t = 0
-                actual_equivalent_coord = original_coordinates
-                new_equivalent_coord = original_coordinates
-                while not done:
-                    t += 1
-                    action = self.select_action(state, all_actions, ground_truth)
-                    all_actions.append(action)
-                    if action == 0:
-                        next_state = None
-                        new_equivalent_coord = self.calculate_position_box(all_actions)
-                        closest_gt = self.get_max_bdbox( ground_truth_boxes, new_equivalent_coord )
-                        reward = self.compute_trigger_reward(new_equivalent_coord,  closest_gt)
-                        done = True
-
-                    else:
-                        self.actions_history = self.update_history(action)
-                        new_equivalent_coord = self.calculate_position_box(all_actions)
-                        
-                        new_image = original_image[:, int(new_equivalent_coord[2]):int(new_equivalent_coord[3]), int(new_equivalent_coord[0]):int(new_equivalent_coord[1])]
-                        try:
-                            new_image = transform(new_image)
-                        except ValueError:
-                            break                        
-                        if False:
-                            show_new_bdbox(original_image, ground_truth, color='r')
-                            show_new_bdbox(original_image, new_equivalent_coord, color='b')
-                            
-
-                        next_state = self.compose_state(new_image)
-                        closest_gt = self.get_max_bdbox( ground_truth_boxes, new_equivalent_coord )
-                        reward = self.compute_reward(new_equivalent_coord, actual_equivalent_coord, closest_gt)
-                        
-                        actual_equivalent_coord = new_equivalent_coord
-                    if t == 20:
-                        done = True
-                    self.memory.push(state, int(action), next_state, reward)
-
-                    state = next_state
-                    image = new_image
-                    self.optimize_model()
-                    
-            stats = self.evaluate(valid_loader)
-            op.write("\n")
-            op.write("Episode "+str(i_episode))
-            op.write(str(stats))
-            if i_episode % self.TARGET_UPDATE == 0:
-                self.target_net.load_state_dict(self.policy_net.state_dict())
-            
-            if i_episode<5:
-                self.EPS -= 0.18
-            self.save_network()
-            
             print('Complete')

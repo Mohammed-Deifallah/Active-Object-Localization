@@ -3,8 +3,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-import pandas as pd
 from config import *
+import pandas as pd
 import random
 import tqdm.notebook as tq
 
@@ -32,10 +32,12 @@ def sort_class_extract(datasets):
             
             if isinstance(obj, list):
                 for j in range(len(obj)):
-                    classe = target['annotation']['object'][j]["name"]
-                    org[classe].append([target['annotation']['object'][j]["bndbox"], target['annotation']['size']])
+                    classe = obj[j]["name"]
+                    if classe in classes:
+                        org[classe].append([obj[j]["bndbox"], target['annotation']['size']])
             else:
-                org[classe].append([target['annotation']['object']["bndbox"], target['annotation']['size']])
+                if classe in classes:
+                    org[classe].append([obj["bndbox"], target['annotation']['size']])
             for j in classes:
                 if len(org[j]) > 1:
                     try:
@@ -74,8 +76,6 @@ def extract(index, loader):
 
         ground_truth_boxes.append([xmin, xmax, ymin, ymax])
     return img, ground_truth_boxes
-
-
 
 
 def voc_ap(rec, prec, voc2007=True):
@@ -117,11 +117,9 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
         yi2 = min(y21, y22)
         xi2 = min(x21, x22)
         inter_area = max(((xi2 - xi1) * (yi2 - yi1)), 0)
-        #  Union(A,B) = A + B - Inter(A,B)
         box1_area = (x21 - x11) * (y21 - y11)
         box2_area = (x22 - x12) * (y22 - y12)
         union_area = box1_area + box2_area - inter_area
-        # Calcul de IOU
         iou = inter_area / union_area
 
         if iou > ovthresh:
@@ -131,7 +129,6 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
         d += 1
         
     
-    # Calcul de la précision et du recall
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
     rec = tp / float(npos)
