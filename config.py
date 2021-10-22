@@ -1,4 +1,6 @@
 use_cuda = True
+
+import os
 import torch
 import torch.nn as nn
 from collections import namedtuple
@@ -7,6 +9,7 @@ FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 Tensor = FloatTensor
 SAVE_MODEL_PATH = './models/q_network'
+os.makedirs(SAVE_MODEL_PATH, exist_ok=True)
 if use_cuda:
     criterion = nn.MSELoss().cuda()   
 else:

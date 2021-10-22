@@ -368,7 +368,8 @@ class Agent():
 
         for i_episode in range(self.num_episodes):
             print("Episode "+str(i_episode))
-            for key, value in  train_loader.items():
+
+            for key, value in  tq.tqdm(train_loader.items()):
                 image, ground_truth_boxes = extract(key, train_loader)
                 original_image = image.clone()
                 ground_truth = ground_truth_boxes[0]
