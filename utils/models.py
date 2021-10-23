@@ -7,13 +7,16 @@ class FeatureExtractor(nn.Module):
         super(FeatureExtractor, self).__init__()
         if network == 'vgg16':
             model = torchvision.models.vgg16(pretrained=True)
+            self.features = model.features
         elif network == 'resnet50':
             model = torchvision.models.resnet50(pretrained=True)
+            model.fc = nn.Identity()
+            self.features = model
         else:
             model = torchvision.models.alexnet(pretrained=True)
+            self.features = list(model.children())[0] 
+            
         model.eval() # to not do dropout
-        self.features = list(model.children())[0] 
-        self.classifier = nn.Sequential(*list(model.classifier.children())[:-2])
     def forward(self, x):
         x = self.features(x)
         return x
@@ -22,7 +25,7 @@ class DQN(nn.Module):
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
         self.classifier = nn.Sequential(
-            nn.Linear( in_features= 81 + 25088, out_features=1024),
+            nn.Linear( in_features= 81 + 512*4, out_features=1024),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear( in_features= 1024, out_features=1024),
