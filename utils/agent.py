@@ -330,6 +330,8 @@ class Agent():
         if plot:
             #images = []
             tested = 0
+            import os
+            os.makedirs('media', exist_ok=True)
             while os.path.isfile('media/movie_'+str(tested)+'.gif'):
                 tested += 1
             # filepaths

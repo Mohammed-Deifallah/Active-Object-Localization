@@ -17,6 +17,7 @@ def sort_class_extract(datasets):
 
     for dataset in datasets:
         for i in tq.tqdm(dataset):
+            # if random.random() > 0.9 : return datasets_per_class
             img, target = i
             obj = target['annotation']['object']
             if isinstance(obj, list):
@@ -38,13 +39,15 @@ def sort_class_extract(datasets):
             else:
                 if classe in classes:
                     org[classe].append([obj["bndbox"], target['annotation']['size']])
+
+            K = classes[1]
             for j in classes:
                 if len(org[j]) > 1:
                     try:
                         datasets_per_class[j][filename].append(org[j])
                     except KeyError:
                         datasets_per_class[j][filename] = []
-                        datasets_per_class[j][filename].append(org[j])       
+                        datasets_per_class[j][filename].append(org[j])  
     return datasets_per_class
 
 
