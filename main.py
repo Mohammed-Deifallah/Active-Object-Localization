@@ -162,5 +162,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-r','--rollouts', type=int, default=N_ROLLOUTS)
     args = parser.parse_args()
-    N_ROLLOUTS = args.steps
+    N_ROLLOUTS = args.rollouts
     main()
