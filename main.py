@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 import os
 import time
-import optuna
 import argparse
-import plotext as plt
-import traceback
 from datetime import timedelta
 
 import numpy as np
