@@ -133,7 +133,7 @@ def get_features(feature_extractor, image, dtype=FloatTensor):
 def main():
 
     train_loader2007_train, train_loader2007_val = \
-        read_voc_dataset(path="/kaggle/input/pascal-voc-2007/VOCtrainval_06-Nov-2007" ,year='2007')
+        read_voc_dataset(path="../data/VOCtrainval_06-Nov-2007" ,year='2007')
     dsets_per_class_train = sort_class_extract([train_loader2007_train])
     dsets_per_class_val   = sort_class_extract([train_loader2007_val])
 
