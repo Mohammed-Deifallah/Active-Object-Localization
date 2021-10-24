@@ -2,6 +2,17 @@
 
 This repository represents the final project of [Reinforcement Learning Course](http://files.skoltech.ru/data/edu/syllabuses/2021/MA060422.pdf?v=xj03xr) from [Skoltech University](https://www.skoltech.ru/en/). It tackles a non-RL problem using Deep Reinforcement Learning. This project is mainly based on [Active Object Localization with Deep Reinforcement Learning](https://arxiv.org/abs/1511.06015)
 
+## Code Overview
+- `Training.ipynb` is used to reproduce the training process of the model.
+- `Testing.ipynb` is used to reproduce the testing process of the model and visualize some examples of localization.
+- `Plotting.ipynb` is used to plot all graphs and charts shown above using `media` folder.
+- `media` is a folder to save all examples of localization and graphs.
+- `utils` is a directory contaning the following files:
+  - `agent.py`: a wrapper for the per-class agent that contains the whole components of RL (ϵ-greedy policy, reward, ... etc).
+  - `models.py`: a wrapper for the two main modules of the network: _Feature Extractor_ and _DQN_.
+  - `dataset.py`: a separate file for reading the dataset (train and val).
+  - `tools.py`: a collection of useful functions, such as computing the metrics or extracting a specified class from the dataset.
+
 ## Model
 
 The following figure shows the high-level diagram of the used DQN model architecture from the authors of the original work:
@@ -15,9 +26,11 @@ According to the paper, we used [VGG-16](https://pytorch.org/vision/stable/model
 We used [PASCAL VOC 2007 Dataset](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/), a well-known dataset for object recognition. This dataset contains various images for 20 different classes, spanning from human beings and living creatures to vehicles and indoor objects.
 For the sake of our academic project, we trained the training set on a less number of classes, and used the validation set for testing.
 
+P.S. The current version of the code only supports the offline dataset because the (mentioned) official website of the dataset was down as described at the start of `training.ipynb`.
+
 ## Metrics
 
-Referring to the below-mentioned original paper, we used **AP** (Average Precision) as our accuracy metric, side by side to **Recall**.
+Referring to the above-mentioned original paper, we used **AP** (Average Precision) as our accuracy metric, side by side to **Recall**.
 
 ## Results
 
