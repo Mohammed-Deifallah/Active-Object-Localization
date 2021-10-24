@@ -8,6 +8,9 @@ import traceback
 from datetime import timedelta
 
 import numpy as np
+from stable_baselines3.common.callbacks import EvalCallback
+from torch.autograd import Variable
+
 np.seterr(under='ignore')
 
 import torch
@@ -22,77 +25,145 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from utils.env import bbox_env
+from utils.tools import *
+from utils.models import *
+from utils.dataset import read_voc_dataset
 
 # from utils import clr, inv_clr
 
-TUNE_PARAMS      = False
-OPTUNA_STUDY_NAME='optuna_11'
-
-N_LEARN_STEPS    = 1300500
-N_TEST_STEPS     = 10100
-BATCH_SIZE       = 2**10
-STEPS_IN_EPISODE = 1000
-N_CPU            = 8
+N_ENV      = 10
+N_ROLLOUTS = 10
+N_ROLLOUT_STEPS = 100
+N_SAVE_ROOT = os.path.join('models', time.strftime(f'%Y%b%d_%H_%M'))
 
 def unwrap_vec_env( vec_env ):
     return vec_env.unwrapped.envs[0].unwrapped
 
-def get_vectorized_env(episode_steps, n_envs):
-    env_args = {
-        'n_dof':n_dof,
-        'grid_size':lfw.grid_size,
-        'energy_callback':lfw.calc_energy,
-        'opt_pose_callback':lfw.get_opt_pose,
-        'steps_in_episode':episode_steps
+def get_vectorized_env(image_loader, feature_extractor, fe_out_dim, n_envs):
+    args = {
+        'image_loader': image_loader,
+        'feature_extractor': feature_extractor,
+        'feature_extractor_dim': fe_out_dim
     }
     env = make_vec_env(
                 env_id=bbox_env,
                 n_envs=n_envs,
-                env_kwargs=env_args
+                env_kwargs=args
             )
     env = VecNormalize(env)
     # env = VecCheckNan(env, raise_exception=True)
     return env
 
-def fit_model( learn_env, n_learn_steps, batch_size, params={}, tb_log_dir=None ):
+def fit_model( class_name, train_env, params={}, tb_log_dir=None, eval_env=None ):
     model = PPO(
-            'MultiInputPolicy',
-            learn_env,
-            verbose=1,
-            device='cpu',
-            batch_size = batch_size,
+            'MlpPolicy',
+            train_env,
+            n_epochs = 5,
+            n_steps  = N_ROLLOUT_STEPS,
+            verbose  = 1,
+            # device = 'cpu',
+            batch_size = N_ROLLOUT_STEPS * train_env.num_envs,
             **params,
             tensorboard_log=tb_log_dir
         )
-    model.learn( total_timesteps=n_learn_steps, log_interval=1 )
+    eval_callback = EvalCallback(
+                            eval_env,
+                            best_model_save_path=f'{N_SAVE_ROOT}/{class_name}',
+                            log_path='./logs/',
+                            eval_freq=N_ROLLOUT_STEPS,
+                            deterministic=True,
+                            render=False
+                    )
+    model.learn(
+        callback = eval_callback,
+        total_timesteps = N_ROLLOUTS * N_ROLLOUT_STEPS * train_env.num_envs
+    )
     return model
 
-def main():
-    test_env = get_vectorized_env( STEPS_IN_EPISODE, n_envs=1 )
-    check_env( unwrap_vec_env(test_env) )
-
-    learn_env = get_vectorized_env(STEPS_IN_EPISODE, n_envs=N_CPU )
-    start_time = time.time()
-    params = {
-        # "n_steps": BATCH_SIZE
-    }
-    model = fit_model(learn_env, N_LEARN_STEPS, BATCH_SIZE, params, tb_log_dir="./tensorboard_log/")
-
-    f_name = os.path.join('models', time.strftime("ppo_%Y_%m_%d__%H_%M"))
+def save_model(class_name, model):
+    f_name = os.path.join('models', time.strftime(f'{class_name}_%Y%b%d_%H_%M'))
     model.save(f_name+'.zip')
     venv = model.get_vec_normalize_env()
     if venv is not None:
         venv.save(f_name+'.pkl')
 
-    mean_rew, std_rew = evaluate_policy( model, test_env, n_eval_episodes=10 )
+def load_model(env, model_path, stats_path):
+    model = PPO.load(model_path)
+    env = VecNormalize.load(stats_path, env)
+    return model, env
+
+def train_class(class_name, image_loader, feature_extractor, fe_out_dim):
+    eval_env = get_vectorized_env( image_loader, feature_extractor, fe_out_dim, n_envs=1 )
+    check_env( unwrap_vec_env(eval_env) )
+    train_env = get_vectorized_env( image_loader, feature_extractor, fe_out_dim, n_envs=N_ENV )
+    params = {
+        # "n_steps": BATCH_SIZE
+    }
+    model = fit_model(
+                class_name,
+                train_env,
+                params,
+                tb_log_dir="./tensorboard_log/",
+                eval_env=eval_env
+            )
+    save_model( class_name, model )
+    del train_env
+    return model, eval_env
+
+def validate_class(class_name, model, eval_env):
+    mean_rew, std_rew = evaluate_policy( model, eval_env, n_eval_episodes=10 )
+    print(f'Class {class_name}: mean reward = {mean_rew:.3f} +/- {std_rew:.3f}')
+
+def get_feature_extractor(use_cuda):
+    feature_extractor = FeatureExtractor(network='vgg16')
+    feature_extractor.eval()
+    if use_cuda:
+        feature_extractor = feature_extractor.cuda()
+    feature_extractor_dim = 25088
+    return feature_extractor, feature_extractor_dim
+
+def get_features(feature_extractor, image, dtype=FloatTensor):
+    global transform
+    #image = transform(image)
+    image = image.view(1,*image.shape)
+    image = Variable(image).type(dtype)
+    if use_cuda:
+        image = image.cuda()
+    feature = feature_extractor(image)
+    #print("Feature shape : "+str(feature.shape))
+    return feature.data
+
+def main():
+
+    train_loader2007_train, train_loader2007_val = \
+        read_voc_dataset(path="../data/VOCtrainval_06-Nov-2007" ,year='2007')
+    dsets_per_class_train = sort_class_extract([train_loader2007_train])
+    dsets_per_class_val   = sort_class_extract([train_loader2007_val])
+
+    fe, fe_out_dim = get_feature_extractor(use_cuda)
+    feature_extractor = lambda img: get_features(fe,img)
+
+    start_time = time.time()
+
+    for i in range(len(classes)):
+        class_name = classes[i]
+        print(f"Training class : {class_name} ...")
+        model, eval_env = train_class(
+                                class_name,
+                                dsets_per_class_train[class_name],
+                                feature_extractor,
+                                fe_out_dim
+                                )
+        validate_class( class_name, model, eval_env )
+        del model
+        del eval_env
+        torch.cuda.empty_cache()
 
     print(f"TOTAL TIME : {timedelta(seconds=time.time() - start_time)}" )
-    print(f'Mean reward: {mean_rew:.3f} +/- {std_rew:.3f}')
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s','--steps', type=int, default=N_LEARN_STEPS)
+    parser.add_argument('-r','--rollouts', type=int, default=N_ROLLOUTS)
     args = parser.parse_args()
-    N_LEARN_STEPS = args.steps
+    N_ROLLOUTS = args.steps
     main()

@@ -6,7 +6,7 @@ import numpy as np
 from config import *
 import pandas as pd
 import random
-import tqdm.notebook as tq
+import tqdm as tq
 
 classes = ['cat', 'cow', 'dog', 'bird', 'car']
 
@@ -17,6 +17,7 @@ def sort_class_extract(datasets):
 
     for dataset in datasets:
         for i in tq.tqdm(dataset):
+            # if random.random() > 0.8: return datasets_per_class
             img, target = i
             obj = target['annotation']['object']
             if isinstance(obj, list):
@@ -29,7 +30,7 @@ def sort_class_extract(datasets):
             for j in classes:
                 org[j] = []
                 org[j].append(img)
-            
+
             if isinstance(obj, list):
                 for j in range(len(obj)):
                     classe = obj[j]["name"]
@@ -44,7 +45,7 @@ def sort_class_extract(datasets):
                         datasets_per_class[j][filename].append(org[j])
                     except KeyError:
                         datasets_per_class[j][filename] = []
-                        datasets_per_class[j][filename].append(org[j])       
+                        datasets_per_class[j][filename].append(org[j])
     return datasets_per_class
 
 
@@ -111,7 +112,7 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
         box2 = gt_boxes[index][0]
         x11, x21, y11, y21 = box1[0], box1[1], box1[2], box1[3]
         x12, x22, y12, y22 = box2[0], box2[1], box2[2], box2[3]
-        
+
         yi1 = max(y11, y12)
         xi1 = max(x11, x12)
         yi2 = min(y21, y22)
@@ -124,16 +125,16 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
 
         if iou > ovthresh:
             tp[d] = 1.0
-        else:            
+        else:
             fp[d] = 1.0
         d += 1
-        
-    
+
+
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
     rec = tp / float(npos)
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-    
+
     return prec, rec
 
 
@@ -153,7 +154,7 @@ def eval_stats_at_threshold( all_bdbox, all_gt, thresholds=[0.4, 0.5, 0.6]):
 
 
 class ReplayMemory(object):
-    
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
@@ -170,3 +171,9 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
+
+def get_tensor(tensor_func, size):
+    tensor = tensor_func(size)
+    if use_cuda:
+        tensor = tensor.cuda()
+    return tensor

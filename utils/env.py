@@ -1,45 +1,49 @@
+from random import random
 import gym
 import torch
 from gym import spaces
 import numpy as np
 
 from config import *
+from utils.tools import *
+
 # from utils.models import *
-
-
-# from utils import clr, inv_clr
 
 class bbox_env(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__( self, class_name, get_image_cb, threshold, nu, alpha, feature_extractor):
+    def __init__(
+            self,
+            image_loader,
+            feature_extractor,
+            feature_extractor_dim,
+            nu=3.0,
+            alpha=0.2,
+            threshold=0.5 ):
         super().__init__()
 
-        self.class_name   = class_name
-        self.get_image_cb = get_image_cb
+        self.image_loader = image_loader
+        self.img_keys = list(image_loader.keys())
+
+        self.feature_extractor = feature_extractor
 
         self.nu    = nu # Reward of Trigger
         self.alpha = alpha # €[0, 1]  Scaling factor
-
         self.threshold = threshold
-
-        self.feature_extractor = feature_extractor
-        self.feature_extractor.eval()
-
-        self.reset()
 
         xmin = 0.0
         xmax = 224.0
         ymin = 0.0
         ymax = 224.0
 
-        self.orig_coord = [xmin, xmax, ymin, ymax]
-        self.actu_coord = self.orig_coord
+        self.orig_box = [xmin, xmax, ymin, ymax]
+
+        self.reset()
 
         self.n_actions = 9
         self.action_space = spaces.Discrete(self.n_actions)
 
-        state_dim = 81 + feature_extractor.dim
+        state_dim = self.n_actions**2 + feature_extractor_dim
 
         self.observation_space = spaces.Box(
             low  = np.array( [-np.inf]*state_dim ),
@@ -114,7 +118,7 @@ class bbox_env(gym.Env):
         iou = inter_area / union_area
         return iou
 
-    def get_max_bdbox(self, gt_boxes, actu_coord ):
+    def get_max_iou_box(self, gt_boxes, actu_coord ):
         max_iou = False
         max_gt = []
         for gt in gt_boxes:
@@ -141,12 +145,12 @@ class bbox_env(gym.Env):
         image_feature = self.get_features(image, dtype)
         image_feature = image_feature.view(1,-1)
         #print("image feature : "+str(image_feature.shape))
-        history_flatten = self.actions_history.view(1,-1).type(dtype)
+        history_flatten = self.actions_history.view(1,-1)
         state = torch.cat((image_feature, history_flatten), 1)
-        return state
+        return state.squeeze().cpu().numpy()
 
     def update_history(self, action):
-        action_vector = torch.zeros(9)
+        action_vector = get_tensor( torch.zeros, 9 )
         action_vector[action] = 1
         size_history_vector = len(torch.nonzero(self.actions_history))
         if size_history_vector < 9:
@@ -157,60 +161,53 @@ class bbox_env(gym.Env):
             self.actions_history[0][:] = action_vector[:]
         return self.actions_history
 
+    def compute_reward(self, curr_state, prev_state, gt_box):
+        curr_iou = self.intersection_over_union(curr_state, gt_box)
+        prev_iou = self.intersection_over_union(prev_state, gt_box)
+        if curr_iou-prev_iou <= 0:
+            return -1.0
+        return 1.0
+
     def step(self, action):
-        self.step += 1
+        self.cur_step += 1
         self.all_actions.append(action)
+        done = False
 
         if action == 0:
-            state = None
-            new_coord = self.calculate_position_box(self.all_actions)
-            closest_gt = self.get_max_bdbox(  self.gt_boxes, new_coord )
-            reward = self.compute_trigger_reward(new_coord,  closest_gt)
+            state = self.compose_state(self.img)
+            new_box = self.calculate_position_box( self.all_actions )
+            closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
+            reward = self.compute_trigger_reward( new_box,  closest_gt_box )
             done = True
         else:
-            self.actions_history = self.update_history(action)
-            new_coord = self.calculate_position_box(self.all_actions)
+            self.actions_history = self.update_history( action )
+            new_box = self.calculate_position_box( self.all_actions )
 
-            new_image = self.orig_img[:, int(new_coord[2]):int(new_coord[3]), int(new_coord[0]):int(new_coord[1])]
+            new_img = self.orig_img[:, int(new_box[2]):int(new_box[3]), int(new_box[0]):int(new_box[1])]
             try:
-                new_image = transform(new_image)
+                self.img = transform(new_img)
             except ValueError:
                 done = True
 
-            state = self.compose_state(new_image)
-            closest_gt = self.get_max_bdbox( self.gt_boxes, new_coord )
-            reward = self.compute_reward(new_coord, self.actu_coord, closest_gt)
-            self.actu_coord = new_coord
+            state = self.compose_state( self.img )
+            closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
+            reward = self.compute_reward( new_box, self.cur_box, closest_gt_box )
+            self.cur_box = new_box
 
-        if self.step == 20:
+        if self.cur_step >= 20:
             done = True
 
         return state, reward, done, {}
 
     def reset(self):
-        img, gt_boxes = self.get_image_cb(self.class)
-        self.orig_img = img.clone()
+        self.cur_step = 0
+        self.all_actions = []
+        key = random.choice(self.img_keys)
+        self.img, gt_boxes = extract(key, self.image_loader)
+        self.orig_img = self.img.clone()
         self.gt_boxes = gt_boxes
-        self.actions_history = np.ones((9,9))
+        self.cur_box = self.orig_box
+        self.actions_history = get_tensor( torch.ones, (9,9) )
         self.state = self.compose_state(self.orig_img)
         return self.state
 
-    def render(self, mode='human', force=False):
-        # if self.energy < self.best_energy:
-        if force or self.need_print():
-            if self.cur_step==0 :
-                print('**********************RESET*********************')
-            print(f'Step        : {self.cur_step}')
-            print(f'Action      : {self.action}')
-            print(f'Pose        : {self.pose}')
-            print(f'Reward      : {clr(self.reward)}')
-            print(f'Cum reward  : {clr(self.cum_reward)}')
-            print(f'Obs         : {self.obs}')
-            print(f'Start energy: {self.start_nrg:.5f}')
-            print(f'Energy      : {self.nrg:.5f}')
-            print(f'Tot nrg diff: {clr(self.get_energy_diff())} %')
-            print( '-------------')
-            # self.best_nrg = self.nrg
-
-    def need_print(self):
-        return np.random.random() < 3./self.steps_in_episode
