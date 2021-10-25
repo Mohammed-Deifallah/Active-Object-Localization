@@ -18,7 +18,7 @@ This repository represents the final project of [Reinforcement Learning Course](
 
 The following figure shows the high-level diagram of the used DQN model architecture from the authors of the original work:
 
-<a href="https://drive.google.com/uc?export=view&id=1MTDMU6gMGQ_g_HPBBjp8_1AeTV14RV5F"><p align="center"><img src="https://drive.google.com/uc?export=view&id=1MTDMU6gMGQ_g_HPBBjp8_1AeTV14RV5F" style="width: 650px; max-width: 100%; height: auto" title="Click to enlarge picture"/></p></a>
+<p align='center'><img src='media/model.JPG' style="width: 650px; max-width: 100%; height: auto" title="Click to enlarge picture"/></p>
 
 According to the paper, we used [VGG-16](https://pytorch.org/vision/stable/models.html#torchvision.models.vgg16) model as our pre-trained CNN on [ImageNet](https://www.image-net.org/) dataset.
 
@@ -39,11 +39,11 @@ Limited by computational resources, the model shown above is trained on only 5 c
 
 Average Precision             |  Recall
 :-------------------------:|:-------------------------:
-![AP](https://drive.google.com/uc?export=view&id=1-NL9fCFm36Jvpl-tlm36uKCqLfbP3rNF)  |  ![Recall](https://drive.google.com/uc?export=view&id=1-NBD9kaQ4LhvxC3QXEfUpvJIVM2diZn-)
+<img src='media/VGG16 Model - AP.png' alt='AP' title="Click to enlarge picture"/>  |  <img src='media/VGG16 Model - Recall.png' alt='Recall' title="Click to enlarge picture"/>
 
 In addition to those charts, there's another humble chart to demonstrate the comparison to the original results as follows:
 
-<a href="https://drive.google.com/uc?export=view&id=1-No1TMxnOrUzDFj24vpMsLx2-hMPDcAV"><img src="https://drive.google.com/uc?export=view&id=1-No1TMxnOrUzDFj24vpMsLx2-hMPDcAV" style="width: 650px; max-width: 100%; height: auto" title="Click to enlarge picture"/></a>
+<p align='center'><img src="media/comparison.png" style="width: 650px; max-width: 100%; height: auto" title="Click to enlarge picture"/></p>
 
 Kindly note that the model under study is trained using less data, and is also tested against a different dataset.
 
