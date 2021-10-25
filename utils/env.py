@@ -40,6 +40,7 @@ class bbox_env(gym.Env):
         ymax = 224.0
 
         self.orig_box = [xmin, xmax, ymin, ymax]
+        self.cur_box  = self.orig_box
 
         self.reset()
 
@@ -163,17 +164,15 @@ class bbox_env(gym.Env):
             self.actions_history[0][:] = action_vector[:]
         return self.actions_history
 
-
-
     def step(self, action):
         self.cur_step += 1
         self.all_actions.append(action)
 
         if action == 0:
             state = self.compose_state(self.img)
-            new_box = self.calculate_position_box( self.all_actions )
-            closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
-            self.reward = self.compute_trigger_reward( new_box,  closest_gt_box )
+            self.cur_box = self.calculate_position_box( self.all_actions )
+            closest_gt_box = self.get_max_iou_box( self.gt_boxes, self.cur_box )
+            self.reward = self.compute_trigger_reward( self.cur_box,  closest_gt_box )
             self.done = True
         else:
             self.actions_history = self.update_history( action )
@@ -199,6 +198,7 @@ class bbox_env(gym.Env):
         return state, self.reward, self.done, {}
 
     def reset(self):
+        self.final_box = self.cur_box
         self.done = False
         self.cur_step = 0
         self.all_actions = []
