@@ -140,9 +140,9 @@ def get_features(feature_extractor, image, dtype=FloatTensor):
 def main():
 
     train_loader2007_train, train_loader2007_val = \
-        read_voc_dataset(path="../data/VOCtrainval_06-Nov-2007" ,year='2007')
-    dsets_per_class_train = sort_class_extract([train_loader2007_train])
-    dsets_per_class_val   = sort_class_extract([train_loader2007_val])
+        read_voc_dataset(path=f"{VOC2007_ROOT}/VOCtrainval_06-Nov-2007" ,year='2007')
+    dsets_per_cls_train = sort_class_extract([train_loader2007_train])
+    dsets_per_cls_val   = sort_class_extract([train_loader2007_val])
 
     fe, fe_out_dim = get_feature_extractor(use_cuda)
     feature_extractor = lambda img: get_features(fe,img)
@@ -153,8 +153,8 @@ def main():
         class_name = classes[i]
         print(f"Training class : {class_name} ...")
         train_env, eval_env = create_envs(
-                                dsets_per_class_train[class_name],
-                                dsets_per_class_val[class_name],
+                                dsets_per_cls_train[class_name],
+                                dsets_per_cls_val[class_name],
                                 feature_extractor,
                                 fe_out_dim
                                 )
