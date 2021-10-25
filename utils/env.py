@@ -134,7 +134,7 @@ class bbox_env(gym.Env):
         iou_dif = curr_iou-prev_iou
         self.iou = curr_iou
         self.iou_dif = iou_dif
-        return -1.0 if iou_dif <= 0 else 1.0
+        return -2.0 if iou_dif <= 0 else 1.0
 
     def get_features(self, image, dtype=torch.FloatTensor):
         global transform
