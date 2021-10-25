@@ -9,8 +9,8 @@ from config import *
 from utils.tools import *
 
 class_name = 'cat'
-BEST_MODEL = 'models/2021Oct24_23_47/cat/best_model.zip'
-STATS_PATH = 'models/cat_2021Oct25_06_08.pkl'
+BEST_MODEL = 'models/BEST/CAT/best_model.zip'
+STATS_PATH = 'models/BEST/CAT/cat_2021Oct25_06_08.pkl'
 
 def get_loader():
     _,test_loader = read_voc_dataset(
@@ -19,8 +19,8 @@ def get_loader():
                               )
     return sort_class_extract([test_loader])
 
-def create_env(img_loader, feature_extractor, fe_out_dim, stats_path):
-    env = get_vectorized_env( bbox_env, img_loader, feature_extractor, fe_out_dim, 1, True )
+def create_env(img_loader, feature_extractor, fe_out_dim, stats_path, need_render=False):
+    env = get_vectorized_env( bbox_env, img_loader, feature_extractor, fe_out_dim, 1, need_render )
     check_env( unwrap_vec_env(env) )
     env = VecNormalize.load(stats_path, env)
     return env
@@ -44,9 +44,9 @@ def evaluate(env, model, n_images):
     pred_boxes = []
     print("Predicting boxes...")
     for _ in range(n_images):
-        gt_bxs, pred_box = predict_image(env, model)
-        gt_boxes.append(gt_bxs)
-        pred_boxes.append(pred_box)
+        gtruth, pred = predict_image(env, model)
+        gt_boxes.append(gtruth)
+        pred_boxes.append(pred)
     print("Computing recall and ap...")
     stats = eval_stats_at_threshold(pred_boxes, gt_boxes)
     print("Final result : \n"+str(stats))
@@ -71,5 +71,6 @@ env = create_env(img_loader[class_name], f_extr, f_extr_dim, STATS_PATH)
 model = load_model(BEST_MODEL)
 evaluate(env, model, n_images)
 
-# predict_cb = lambda obs: model.predict(obs, deterministic=True)
-# predict_loop(env, predict_cb, n_steps=100)
+env = create_env(img_loader[class_name], f_extr, f_extr_dim, STATS_PATH, need_render=True)
+predict_cb = lambda obs: model.predict(obs, deterministic=True)
+predict_loop(env, predict_cb, n_steps=100)
