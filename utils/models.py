@@ -14,18 +14,19 @@ class FeatureExtractor(nn.Module):
             self.features = model
         else:
             model = torchvision.models.alexnet(pretrained=True)
-            self.features = list(model.children())[0] 
-            
+            self.features = list(model.children())[0]
+
         model.eval() # to not do dropout
     def forward(self, x):
         x = self.features(x)
         return x
-    
+
 class DQN(nn.Module):
-    def __init__(self, h, w, outputs):
+    def __init__(self, f_extr_name='vgg16'):
         super(DQN, self).__init__()
+        f_extr_dim = 25088 if f_extr_name=='vgg16' else 512*4 #resnet50
         self.classifier = nn.Sequential(
-            nn.Linear( in_features= 81 + 25088, out_features=1024),
+            nn.Linear( in_features= 81 + f_extr_dim, out_features=1024),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear( in_features= 1024, out_features=1024),

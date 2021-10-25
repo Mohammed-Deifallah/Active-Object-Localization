@@ -6,7 +6,6 @@ from datetime import timedelta
 
 import numpy as np
 from stable_baselines3.common.callbacks import EvalCallback
-from torch.autograd import Variable
 
 np.seterr(under='ignore')
 
@@ -18,7 +17,6 @@ from stable_baselines3.common.vec_env import VecNormalize, VecCheckNan
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from utils.env import bbox_env
@@ -35,23 +33,16 @@ N_ROLLOUT_STEPS = 200
 START_TIME = time.strftime(f'%b%d__%H_%M')
 SAVE_ROOT  = os.path.join('models', START_TIME)
 
-def unwrap_vec_env( vec_env ):
-    return vec_env.unwrapped.envs[0].unwrapped
-
-def get_vectorized_env(image_loader, feature_extractor, fe_out_dim, n_envs):
-    args = {
-        'image_loader': image_loader,
-        'feature_extractor': feature_extractor,
-        'feature_extractor_dim': fe_out_dim
-    }
-    env = make_vec_env(
-                env_id=bbox_env,
-                n_envs=n_envs,
-                env_kwargs=args
-            )
+def create_env(env_class, image_loader, feature_extractor, fe_out_dim, n_envs):
+    env = get_vectorized_env(env_class, image_loader, feature_extractor, fe_out_dim, n_envs)
     env = VecNormalize(env)
-    # env = VecCheckNan(env, raise_exception=True)
     return env
+
+def create_envs(train_loader, test_loader, feature_extractor, fe_out_dim):
+    eval_env = create_env( bbox_env, test_loader, feature_extractor, fe_out_dim, n_envs=1 )
+    check_env( unwrap_vec_env(eval_env) )
+    train_env = create_env( bbox_env, train_loader, feature_extractor, fe_out_dim, n_envs=N_ENV )
+    return train_env, eval_env
 
 def fit_model( class_name, train_env, params={}, eval_env=None ):
     model = PPO(
@@ -94,11 +85,7 @@ def load_model(env, model_path, stats_path):
     env = VecNormalize.load(stats_path, env)
     return model, env
 
-def create_envs(train_loader, test_loader, feature_extractor, fe_out_dim):
-    eval_env = get_vectorized_env( test_loader, feature_extractor, fe_out_dim, n_envs=1 )
-    check_env( unwrap_vec_env(eval_env) )
-    train_env = get_vectorized_env( train_loader, feature_extractor, fe_out_dim, n_envs=N_ENV )
-    return train_env, eval_env
+
 
 def train_class(class_name, train_env, eval_env):
     params = {
@@ -118,24 +105,6 @@ def validate_class(class_name, model, eval_env):
     mean_rew, std_rew = evaluate_policy( model, eval_env, n_eval_episodes=10 )
     print(f'Class {class_name}: mean reward = {mean_rew:.3f} +/- {std_rew:.3f}')
 
-def get_feature_extractor(use_cuda):
-    feature_extractor = FeatureExtractor(network='vgg16')
-    feature_extractor.eval()
-    if use_cuda:
-        feature_extractor = feature_extractor.cuda()
-    feature_extractor_dim = 25088
-    return feature_extractor, feature_extractor_dim
-
-def get_features(feature_extractor, image, dtype=FloatTensor):
-    global transform
-    #image = transform(image)
-    image = image.view(1,*image.shape)
-    image = Variable(image).type(dtype)
-    if use_cuda:
-        image = image.cuda()
-    feature = feature_extractor(image)
-    #print("Feature shape : "+str(feature.shape))
-    return feature.data
 
 def main():
 

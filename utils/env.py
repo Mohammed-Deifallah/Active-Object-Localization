@@ -17,6 +17,7 @@ class bbox_env(gym.Env):
             image_loader,
             feature_extractor,
             feature_extractor_dim,
+            need_render = False,
             nu=3.0,
             alpha=0.2,
             threshold=0.5 ):
@@ -26,6 +27,8 @@ class bbox_env(gym.Env):
         self.img_keys = list(image_loader.keys())
 
         self.feature_extractor = feature_extractor
+
+        self.need_render = need_render
 
         self.nu    = nu # Reward of Trigger
         self.alpha = alpha # €[0, 1]  Scaling factor
@@ -50,17 +53,6 @@ class bbox_env(gym.Env):
             high = np.array( [np.inf]*state_dim ),
             dtype= np.float32
         )
-
-        # self.observation_space = spaces.Dict({
-        #     'energy'     : energy_space,
-        #     'prev_energy': energy_space,
-        #     'reward'     : reward_space,
-        #     'prev_reward': reward_space,
-        #     'action'     : self.action_space,
-        #     'prev_action': self.action_space,
-        #     'pose'       : pose_space,
-        #     'prev_pose'  : pose_space
-        # })
 
     def rewrap(self, coord):
         return min(max(coord,0), 224)
@@ -118,11 +110,11 @@ class bbox_env(gym.Env):
         iou = inter_area / union_area
         return iou
 
-    def get_max_iou_box(self, gt_boxes, actu_coord ):
+    def get_max_iou_box(self, gt_boxes, cur_box):
         max_iou = False
         max_gt = []
         for gt in gt_boxes:
-            iou = self.intersection_over_union(actu_coord, gt)
+            iou = self.intersection_over_union(cur_box, gt)
             if max_iou == False or max_iou < iou:
                 max_iou = iou
                 max_gt = gt
@@ -130,9 +122,19 @@ class bbox_env(gym.Env):
 
     def compute_trigger_reward(self, box, gt_box):
         res = self.intersection_over_union(box, gt_box)
+        self.iou_dif = 0.0
+        self.iou = res
         if res>=self.threshold:
             return self.nu
         return -1*self.nu
+
+    def compute_reward(self, curr_state, prev_state, gt_box):
+        prev_iou = self.intersection_over_union(prev_state, gt_box)
+        curr_iou = self.intersection_over_union(curr_state, gt_box)
+        iou_dif = curr_iou-prev_iou
+        self.iou = curr_iou
+        self.iou_dif = iou_dif
+        return -1.0 if iou_dif <= 0 else 1.0
 
     def get_features(self, image, dtype=torch.FloatTensor):
         global transform
@@ -161,24 +163,18 @@ class bbox_env(gym.Env):
             self.actions_history[0][:] = action_vector[:]
         return self.actions_history
 
-    def compute_reward(self, curr_state, prev_state, gt_box):
-        curr_iou = self.intersection_over_union(curr_state, gt_box)
-        prev_iou = self.intersection_over_union(prev_state, gt_box)
-        if curr_iou-prev_iou <= 0:
-            return -1.0
-        return 1.0
+
 
     def step(self, action):
         self.cur_step += 1
         self.all_actions.append(action)
-        done = False
 
         if action == 0:
             state = self.compose_state(self.img)
             new_box = self.calculate_position_box( self.all_actions )
             closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
-            reward = self.compute_trigger_reward( new_box,  closest_gt_box )
-            done = True
+            self.reward = self.compute_trigger_reward( new_box,  closest_gt_box )
+            self.done = True
         else:
             self.actions_history = self.update_history( action )
             new_box = self.calculate_position_box( self.all_actions )
@@ -187,23 +183,30 @@ class bbox_env(gym.Env):
             try:
                 self.img = transform(new_img)
             except ValueError:
-                done = True
+                self.done = True
 
             state = self.compose_state( self.img )
             closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
-            reward = self.compute_reward( new_box, self.cur_box, closest_gt_box )
+            self.reward = self.compute_reward( new_box, self.cur_box, closest_gt_box )
             self.cur_box = new_box
 
-        if self.cur_step >= 20:
-            done = True
+        if self.cur_step >= 40:
+            self.done = True
 
-        return state, reward, done, {}
+        if self.need_render:
+            self.render()
+
+        return state, self.reward, self.done, {}
 
     def reset(self):
+        self.done = False
         self.cur_step = 0
         self.all_actions = []
-        key = random.choice(self.img_keys)
-        self.img, gt_boxes = extract(key, self.image_loader)
+        self.iou = 0.
+        self.iou_dif = 0.
+        self.reward = None
+        self.key = random.choice(self.img_keys)
+        self.img, gt_boxes = extract(self.key, self.image_loader)
         self.orig_img = self.img.clone()
         self.gt_boxes = gt_boxes
         self.cur_box = self.orig_box
@@ -211,3 +214,14 @@ class bbox_env(gym.Env):
         self.state = self.compose_state(self.orig_img)
         return self.state
 
+    def render(self, mode='human'):
+        file_prefix=self.key[:6]+'_'
+        text = [f'iou:{self.iou:.2f}', f'diff:{self.iou_dif:.2f}', f'reward:{self.reward}']
+        show_new_bdbox(
+            self.orig_img,
+            self.cur_box, count=self.cur_step,
+            infos=text,
+            save_path=MEDIA_ROOT, prefix=file_prefix )
+        # if self.done:
+        #     make_movie(
+        #         in_dir='media', in_prefix=file_prefix, out_dir=MEDIA_ROOT, total_frames=self.cur_step )

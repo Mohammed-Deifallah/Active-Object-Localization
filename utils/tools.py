@@ -3,10 +3,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
+from stable_baselines3.common.vec_env.vec_normalize import VecNormalize
 from config import *
 import pandas as pd
 import random
 import tqdm as tq
+import imageio
+
+from torch.autograd import Variable
+from utils.models import FeatureExtractor
+from stable_baselines3.common.env_util import make_vec_env
+
 
 classes = ['cat', 'cow', 'dog', 'bird', 'car']
 
@@ -49,7 +56,7 @@ def sort_class_extract(datasets):
     return datasets_per_class
 
 
-def show_new_bdbox(image, labels, color='r', count=0):
+def show_new_bdbox(image, labels, color='r', count=0, infos=[], save_path='', prefix=''):
     xmin, xmax, ymin, ymax = labels[0],labels[1],labels[2],labels[3]
     fig,ax = plt.subplots(1)
     ax.imshow(image.transpose(0, 2).transpose(0, 1))
@@ -58,9 +65,24 @@ def show_new_bdbox(image, labels, color='r', count=0):
     height = ymax-ymin
     rect = patches.Rectangle((xmin,ymin),width,height,linewidth=3,edgecolor=color,facecolor='none')
     ax.add_patch(rect)
-    ax.set_title("Iteration "+str(count))
-    plt.savefig(str(count)+'.png', dpi=100)
+    infos.insert( 0, f"Step: {count}" )
+    ax.set_title( ', '.join(infos) )
+    save_path = os.path.join(save_path, f'{prefix}{count}.png')
+    plt.savefig(save_path, dpi=100)
+    plt.close(fig)
 
+def make_movie(in_dir, in_prefix, out_dir, total_frames, del_source_images=False):
+    tested = 0
+    while os.path.isfile(f'{out_dir}/movie_{tested}.gif'): tested += 1
+    images = []
+    for count in range(1, total_frames+1):
+        images.append(imageio.imread(f'{in_dir}/{in_prefix}{count}.png'))
+
+    imageio.mimsave(f'{out_dir}/movie_{tested}.gif', images)
+
+    if del_source_images:
+        for count in range(1, total_frames):
+            os.remove(f'{in_dir}/{in_prefix}{count}.png')
 
 def extract(index, loader):
     extracted = loader[index]
@@ -177,3 +199,51 @@ def get_tensor(tensor_func, size):
     if use_cuda:
         tensor = tensor.cuda()
     return tensor
+
+def get_features(feature_extractor, image, dtype=FloatTensor):
+    global transform
+    #image = transform(image)
+    image = image.view(1,*image.shape)
+    image = Variable(image).type(dtype)
+    if use_cuda:
+        image = image.cuda()
+    feature = feature_extractor(image)
+    #print("Feature shape : "+str(feature.shape))
+    return feature.data
+
+def _get_feature_extractor(use_cuda, network):
+    feature_extractor = FeatureExtractor(network=network)
+    feature_extractor.eval()
+    if use_cuda: feature_extractor = feature_extractor.cuda()
+    return feature_extractor
+
+def get_feature_extractor(use_cuda, network='vgg16'):
+    fe = _get_feature_extractor(use_cuda, network)
+    feature_extractor = lambda img: get_features(fe,img)
+    feature_extractor_dim = 25088 if network=='vgg16' else 512*4 #resnet50
+    return feature_extractor, feature_extractor_dim
+
+def get_vectorized_env(
+        env_class,
+        image_loader,
+        feature_extractor,
+        fe_out_dim,
+        n_envs,
+        need_render=False
+    ):
+    args = {
+        'image_loader': image_loader,
+        'feature_extractor': feature_extractor,
+        'feature_extractor_dim': fe_out_dim,
+        'need_render' : need_render
+    }
+    env = make_vec_env(
+                env_id=env_class,
+                n_envs=n_envs,
+                env_kwargs=args
+            )
+    # env = VecCheckNan(env, raise_exception=True)
+    return env
+
+def unwrap_vec_env( vec_env ):
+    return vec_env.unwrapped.envs[0].unwrapped
