@@ -422,7 +422,8 @@ class Agent():
             if i_episode % self.TARGET_UPDATE == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
 
-            self.EPS -= 0.225
+            if i_episode < 5:
+                self.EPS -= 0.18
             self.save_network()
 
             print('Complete')
