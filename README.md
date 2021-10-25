@@ -7,6 +7,7 @@ This repository represents the final project of [Reinforcement Learning Course](
 - `Testing.ipynb` is used to reproduce the testing process of the model and visualize some examples of localization.
 - `Plotting.ipynb` is used to plot all graphs and charts shown above using `media` folder.
 - `media` is a folder to save all examples of localization and graphs.
+- `models` is a directory which is needed to keep the saved models weights after training. This is an [example](https://drive.google.com/drive/folders/1JvwQquAVerxj7DD-qtKJGvmc_VUNBpr8?usp=sharing) of the so-called folder.
 - `utils` is a directory contaning the following files:
   - `agent.py`: a wrapper for the per-class agent that contains the whole components of RL (ϵ-greedy policy, reward, ... etc).
   - `models.py`: a wrapper for the two main modules of the network: _Feature Extractor_ and _DQN_.
