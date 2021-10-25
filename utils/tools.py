@@ -200,7 +200,7 @@ def get_tensor(tensor_func, size):
         tensor = tensor.cuda()
     return tensor
 
-def get_features(feature_extractor, image, dtype=FloatTensor):
+def extract_features(feature_extractor, image, dtype=FloatTensor):
     global transform
     #image = transform(image)
     image = image.view(1,*image.shape)
@@ -219,7 +219,7 @@ def _get_feature_extractor(use_cuda, network):
 
 def get_feature_extractor(use_cuda, network='vgg16'):
     fe = _get_feature_extractor(use_cuda, network)
-    feature_extractor = lambda img: get_features(fe,img)
+    feature_extractor = lambda img: extract_features(fe,img)
     feature_extractor_dim = 25088 if network=='vgg16' else 512*4 #resnet50
     return feature_extractor, feature_extractor_dim
 

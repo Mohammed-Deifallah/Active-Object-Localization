@@ -115,8 +115,7 @@ def main():
     dsets_per_cls_train = sort_class_extract([train_loader])
     dsets_per_cls_val   = sort_class_extract([val_loader])
 
-    fe, fe_out_dim = get_feature_extractor(use_cuda)
-    feature_extractor = lambda img: get_features(fe,img)
+    feature_extr, feature_extr_dim = get_feature_extractor(use_cuda)
 
     start_time = time.time()
 
@@ -126,8 +125,8 @@ def main():
         train_env, eval_env = create_envs(
                                 dsets_per_cls_train[class_name],
                                 dsets_per_cls_val[class_name],
-                                feature_extractor,
-                                fe_out_dim
+                                feature_extr,
+                                feature_extr_dim
                                 )
         model = train_class( class_name, train_env, eval_env )
         validate_class( class_name, model, eval_env )
