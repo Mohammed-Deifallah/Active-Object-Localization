@@ -15,7 +15,8 @@ from utils.models import FeatureExtractor
 from stable_baselines3.common.env_util import make_vec_env
 
 
-classes = ['cat', 'cow', 'dog', 'bird', 'car']
+# classes = ['cat', 'cow', 'dog', 'bird', 'car']
+classes = ['person']
 
 def sort_class_extract(datasets):
     datasets_per_class = {}
