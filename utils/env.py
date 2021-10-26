@@ -170,7 +170,7 @@ class bbox_env(gym.Env):
         self.all_actions.append(action)
 
         if action == 0:
-            state = self.compose_state(self.img)
+            self.state = self.compose_state(self.img)
             self.cur_box = self.calculate_position_box( self.all_actions )
             closest_gt_box = self.get_max_iou_box( self.gt_boxes, self.cur_box )
             self.reward = self.compute_trigger_reward( self.cur_box,  closest_gt_box )
@@ -185,7 +185,7 @@ class bbox_env(gym.Env):
             except ValueError:
                 self.done = True
 
-            state = self.compose_state( self.img )
+            self.state = self.compose_state( self.img )
             closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
             self.reward = self.compute_reward( new_box, self.cur_box, closest_gt_box )
             self.cur_box = new_box
@@ -196,7 +196,7 @@ class bbox_env(gym.Env):
         if self.need_render:
             self.render()
 
-        return state, self.reward, self.done, {}
+        return self.state, self.reward, self.done, {}
 
     def reset(self):
         self.final_box = self.cur_box
@@ -206,10 +206,9 @@ class bbox_env(gym.Env):
         self.iou = 0.
         self.iou_dif = 0.
         self.reward = None
-        self.key_idx += 1
-        if self.key_idx >= len(self.img_keys):
-            self.key_idx = 0
+        self.key_idx = (self.key_idx+1) % len(self.img_keys)
         self.key = self.img_keys[ self.key_idx ]
+        # print(self.key)
         self.img, gt_boxes = extract(self.key, self.image_loader)
         self.orig_img = self.img.clone()
         self.gt_boxes = gt_boxes
@@ -229,3 +228,9 @@ class bbox_env(gym.Env):
         # if self.done:
         #     make_movie(
         #         in_dir='media', in_prefix=file_prefix, out_dir=MEDIA_ROOT, total_frames=self.cur_step )
+    def get_obs(self):
+        return self.state
+    def get_gt_boxes(self):
+        return self.gt_boxes
+    def get_final_box(self):
+        return self.final_box
