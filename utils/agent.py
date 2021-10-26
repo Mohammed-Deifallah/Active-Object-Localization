@@ -340,7 +340,7 @@ class Agent():
             
             imageio.mimsave(fp_out, images)
             
-            for count in range(1, steps):
+            for count in range(1, steps + 1):
                 os.remove(str(count)+".png")
         return new_equivalent_coord
 
