@@ -25,6 +25,7 @@ class bbox_env(gym.Env):
 
         self.image_loader = image_loader
         self.img_keys = list(image_loader.keys())
+        self.key_idx = -1
 
         self.feature_extractor = feature_extractor
 
@@ -205,7 +206,10 @@ class bbox_env(gym.Env):
         self.iou = 0.
         self.iou_dif = 0.
         self.reward = None
-        self.key = random.choice(self.img_keys)
+        self.key_idx += 1
+        if self.key_idx >= len(self.img_keys):
+            self.key_idx = 0
+        self.key = self.img_keys[ self.key_idx ]
         self.img, gt_boxes = extract(self.key, self.image_loader)
         self.orig_img = self.img.clone()
         self.gt_boxes = gt_boxes
