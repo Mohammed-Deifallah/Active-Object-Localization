@@ -35,7 +35,7 @@ SAVE_ROOT  = os.path.join('models', START_TIME)
 
 def create_env(env_class, image_loader, feature_extractor, fe_out_dim, n_envs):
     env = get_vectorized_env(env_class, image_loader, feature_extractor, fe_out_dim, n_envs)
-    env = VecNormalize(env)
+    env = VecNormalize(env, norm_reward=False)
     return env
 
 def create_envs(train_loader, test_loader, feature_extractor, fe_out_dim):
