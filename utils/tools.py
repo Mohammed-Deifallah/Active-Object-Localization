@@ -151,10 +151,9 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
             fp[d] = 1.0
         d += 1
 
-
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
-    rec = tp / float(npos)
+    rec = tp / tp[-1]
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
 
     return prec, rec
@@ -162,7 +161,7 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
 
 def compute_ap_and_recall(all_bdbox, all_gt, ovthresh):
     prec, rec = prec_rec_compute(all_bdbox, all_gt, ovthresh)
-    ap = voc_ap(rec, prec, False)
+    ap = voc_ap(rec, prec, True)
     return ap, rec[-1]
 
 
