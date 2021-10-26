@@ -2,7 +2,12 @@
 
 This repository represents the final project of [Reinforcement Learning Course](http://files.skoltech.ru/data/edu/syllabuses/2021/MA060422.pdf?v=xj03xr) from [Skoltech University](https://www.skoltech.ru/en/). It tackles a non-RL problem using Deep Reinforcement Learning. This project is mainly based on [Active Object Localization with Deep Reinforcement Learning](https://arxiv.org/abs/1511.06015)
 
-## Code Overview
+## Git branches
+- `main` - implementation according to original article (Pytorch+DQN) - based on Rayan Samy's code referenced below
+- `resnet50` - same as main but feature extractor is pre-trained resnet50 (instead of vgg16 used in main)
+- `sb3_gym` - experimental impementation based on PPO algorithm from 'Stable Baselines 3' library (feature extractor is still pre-trained CNN)
+
+## Code Overview (main branch)
 - `Training.ipynb` is used to reproduce the training process of the model.
 - `Testing.ipynb` is used to reproduce the testing process of the model and visualize some examples of localization.
 - `Plotting.ipynb` is used to plot all graphs and charts shown above using `media` folder.
