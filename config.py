@@ -10,6 +10,15 @@ FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 Tensor = FloatTensor
 
+# CLASSES = ['cat', 'cow', 'dog', 'bird', 'car']
+CLASSES = ['person']
+BEST_MODELS = ['models/Oct26__22_26/person/best_model.zip']
+STATS_PATHS = ['models/Oct26__22_26/person/Oct27__05_07.pkl']
+
+# CLASSES = ['cat']
+# BEST_MODELS = ['models/BEST/CAT/best_model.zip']
+# STATS_PATHS = ['models/BEST/CAT/cat_2021Oct25_06_08.pkl']
+
 SAVE_MODEL_PATH = './models/q_network'
 os.makedirs(SAVE_MODEL_PATH, exist_ok=True)
 

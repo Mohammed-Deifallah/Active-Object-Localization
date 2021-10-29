@@ -119,8 +119,8 @@ def main():
 
     start_time = time.time()
 
-    for i in range(len(classes)):
-        class_name = classes[i]
+    for i in range(len(CLASSES)):
+        class_name = CLASSES[i]
         print(f"Training class : {class_name} ...")
         train_env, eval_env = create_envs(
                                 dsets_per_cls_train[class_name],

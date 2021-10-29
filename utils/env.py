@@ -6,6 +6,7 @@ import numpy as np
 
 from config import *
 from utils.tools import *
+import torchvision.ops as ops
 
 # from utils.models import *
 
@@ -55,62 +56,59 @@ class bbox_env(gym.Env):
             high = np.array( [np.inf]*state_dim ),
             dtype= np.float32
         )
+        self.max_episode_steps = 20
+        self._max_episode_steps = 20
+        self.name = 'BBox_env_v0'
 
-    def rewrap(self, coord):
-        return min(max(coord,0), 224)
+    def rewrap(self, coord, mi=0, ma=224):
+        return min(max(coord,mi), ma)
 
-    def calculate_position_box(self, actions, xmin=0, xmax=224, ymin=0, ymax=224):
-        alpha_h = self.alpha * (  ymax - ymin )
-        alpha_w = self.alpha * (  xmax - xmin )
-        real_x_min, real_x_max, real_y_min, real_y_max = 0, 224, 0, 224
+    def calculate_position_box(self, actions, x_min=0, x_max=224, y_min=0, y_max=224):
 
         for r in actions:
+            alpha_h = self.alpha * (  y_max - y_min )
+            alpha_w = self.alpha * (  x_max - x_min )
+
             if r == 1: # Right
-                real_x_min += alpha_w
-                real_x_max += alpha_w
+                x_min += alpha_w
+                x_max += alpha_w
             if r == 2: # Left
-                real_x_min -= alpha_w
-                real_x_max -= alpha_w
+                x_min -= alpha_w
+                x_max -= alpha_w
             if r == 3: # Up
-                real_y_min -= alpha_h
-                real_y_max -= alpha_h
+                y_min -= alpha_h
+                y_max -= alpha_h
             if r == 4: # Down
-                real_y_min += alpha_h
-                real_y_max += alpha_h
+                y_min += alpha_h
+                y_max += alpha_h
             if r == 5: # Bigger
-                real_y_min -= alpha_h
-                real_y_max += alpha_h
-                real_x_min -= alpha_w
-                real_x_max += alpha_w
+                y_min -= alpha_h
+                y_max += alpha_h
+                x_min -= alpha_w
+                x_max += alpha_w
             if r == 6: # Smaller
-                real_y_min += alpha_h
-                real_y_max -= alpha_h
-                real_x_min += alpha_w
-                real_x_max -= alpha_w
+                y_min += alpha_h
+                y_max -= alpha_h
+                x_min += alpha_w
+                x_max -= alpha_w
             if r == 7: # Fatter
-                real_y_min += alpha_h
-                real_y_max -= alpha_h
+                y_min += alpha_h
+                y_max -= alpha_h
             if r == 8: # Taller
-                real_x_min += alpha_w
-                real_x_max -= alpha_w
-        real_x_min, real_x_max, real_y_min, real_y_max = self.rewrap(real_x_min), self.rewrap(real_x_max), self.rewrap(real_y_min), self.rewrap(real_y_max)
-        return [real_x_min, real_x_max, real_y_min, real_y_max]
+                x_min += alpha_w
+                x_max -= alpha_w
+        x_min = self.rewrap(x_min,0,223)
+        x_max = self.rewrap(x_max+1,1,224)
+        y_min = self.rewrap(y_min,0,223)
+        y_max = self.rewrap(y_max+1,1,224)
+        return [x_min, x_max, y_min, y_max]
 
     def intersection_over_union(self, box1, box2):
         x11, x21, y11, y21 = box1
         x12, x22, y12, y22 = box2
-
-        yi1 = max(y11, y12)
-        xi1 = max(x11, x12)
-        yi2 = min(y21, y22)
-        xi2 = min(x21, x22)
-        inter_area = max(((xi2 - xi1) * (yi2 - yi1)), 0)
-        box1_area = (x21 - x11) * (y21 - y11)
-        box2_area = (x22 - x12) * (y22 - y12)
-        union_area = box1_area + box2_area - inter_area
-
-        iou = inter_area / union_area
-        return iou
+        box1 = Tensor([x11,y11,x21,y21]).view(1,-1)
+        box2 = Tensor([x12,y12,x22,y22]).view(1,-1)
+        return ops.box_iou( box1, box2 ).item()
 
     def get_max_iou_box(self, gt_boxes, cur_box):
         max_iou = False
@@ -180,17 +178,15 @@ class bbox_env(gym.Env):
             new_box = self.calculate_position_box( self.all_actions )
 
             new_img = self.orig_img[:, int(new_box[2]):int(new_box[3]), int(new_box[0]):int(new_box[1])]
-            try:
-                self.img = transform(new_img)
-            except ValueError:
-                self.done = True
+            self.img = transform(new_img)
+
 
             self.state = self.compose_state( self.img )
             closest_gt_box = self.get_max_iou_box( self.gt_boxes, new_box )
             self.reward = self.compute_reward( new_box, self.cur_box, closest_gt_box )
             self.cur_box = new_box
 
-        if self.cur_step >= 40:
+        if self.cur_step >= self._max_episode_steps:
             self.done = True
 
         if self.need_render:

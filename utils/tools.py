@@ -15,12 +15,10 @@ from utils.models import FeatureExtractor
 from stable_baselines3.common.env_util import make_vec_env
 
 
-# classes = ['cat', 'cow', 'dog', 'bird', 'car']
-classes = ['person']
 
 def sort_class_extract(datasets):
     datasets_per_class = {}
-    for j in classes:
+    for j in CLASSES:
         datasets_per_class[j] = {}
 
     for dataset in datasets:
@@ -35,19 +33,19 @@ def sort_class_extract(datasets):
             filename = target['annotation']['filename']
 
             org = {}
-            for j in classes:
+            for j in CLASSES:
                 org[j] = []
                 org[j].append(img)
 
             if isinstance(obj, list):
                 for j in range(len(obj)):
                     classe = obj[j]["name"]
-                    if classe in classes:
+                    if classe in CLASSES:
                         org[classe].append([obj[j]["bndbox"], target['annotation']['size']])
             else:
-                if classe in classes:
+                if classe in CLASSES:
                     org[classe].append([obj["bndbox"], target['annotation']['size']])
-            for j in classes:
+            for j in CLASSES:
                 if len(org[j]) > 1:
                     try:
                         datasets_per_class[j][filename].append(org[j])
@@ -113,7 +111,7 @@ def voc_ap(rec, prec, voc2007=True):
             ap = ap + p / 11.0
     else:
         mrec = np.concatenate(([0.0], rec, [1.0]))
-        mpre = np.concatenate(([0.0], prec, [0.0]))
+        mpre = np.concatenate(([1.0], prec, [0.0]))
 
         for i in range(mpre.size - 1, 0, -1):
             mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
@@ -154,7 +152,7 @@ def prec_rec_compute(bounding_boxes, gt_boxes, ovthresh):
 
     fp = np.cumsum(fp)
     tp = np.cumsum(tp)
-    rec = tp / tp[-1]
+    rec = tp / npos
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
 
     return prec, rec
